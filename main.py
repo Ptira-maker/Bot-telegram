@@ -1,49 +1,42 @@
-#!/usr/bin/env python3
-"""
-Telegram Bot demo per Replit
-Comandi:  /start   -> saluto
-          Qualsiasi testo -> echo
-"""
-
 import os
 import logging
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from flask import Flask
+from threading import Thread
 
-# Leggo il token dalla variabile d’ambiente (impostata in Replit Secrets)
+# --- Telegram Bot ---
 TOKEN = os.getenv("TOKEN")
-
 if not TOKEN:
-    raise RuntimeError("Manca la variabile d'ambiente TOKEN!")
+    raise RuntimeError("TOKEN non impostato!")
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+logging.basicConfig(level=logging.INFO)
 
-# ---------- handlers ----------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Ciao! Sono vivo su Replit 🚀")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot Telegram attivo!")
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    txt = update.message.text
-    await update.message.reply_text(f"Hai scritto: {txt}")
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Hai scritto: {update.message.text}")
 
-# ---------- main ----------
-def main() -> None:
-    app = ApplicationBuilder().token(TOKEN).build()
+# --- Flask mini-server per Render ---
+app = Flask(__name__)
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+@app.route("/")
+def home():
+    return "OK", 200
 
-    print("Bot avviato. In ascolto…")
-    app.run_polling()
+# --- Avvio parallelo ---
+def run_flask():
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+def main():
+    Thread(target=run_flask, daemon=True).start()
+
+    application = ApplicationBuilder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
